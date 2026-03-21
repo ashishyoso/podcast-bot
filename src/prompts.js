@@ -284,35 +284,55 @@ function buildCutsUserPrompt(transcript, hasTimestamps) {
 }
 
 function buildEditorialsUserPrompt(transcript, cutsResult) {
+  // Send only relevant cuts data (not the full analysis) + truncated transcript
+  const cutsContext = {
+    episode_overview: cutsResult.episode_overview,
+    energy_map: cutsResult.energy_map,
+    cuts: cutsResult.cuts,
+    reel_worthy_moments: cutsResult.reel_worthy_moments,
+  };
+  // Truncate transcript — editorials references cuts timeline, doesn't need full text
+  const truncated = transcript.length > 15000
+    ? transcript.slice(0, 15000) + '\n\n[... transcript truncated — use cuts analysis for full timeline ...]'
+    : transcript;
+
   return `Generate the editorial overlay guide for this podcast. Follow your 6-pass process exactly.
 
 Here is the CUTS ANALYSIS from Pass 1 (reference the post-cut timeline):
-${JSON.stringify(cutsResult, null, 2)}
+${JSON.stringify(cutsContext)}
 
 TRANSCRIPT:
-${transcript}`;
+${truncated}`;
 }
 
 function buildChaptersUserPrompt(transcript, cutsResult, editorialsResult) {
+  // Pass 3 only needs specific subsets — compact JSON, truncated transcript
+  const truncated = transcript.length > 12000
+    ? transcript.slice(0, 12000) + '\n\n[... transcript truncated — use analysis data for full context ...]'
+    : transcript;
+
   return `Generate chapters, titles, description, and metadata. Follow your 6-pass process exactly.
 
-CUTS ANALYSIS (use post-cut timeline for timestamps):
-${JSON.stringify(cutsResult.before_after_flow, null, 2)}
+EPISODE OVERVIEW:
+${JSON.stringify(cutsResult.episode_overview)}
+
+POST-CUT FLOW:
+${JSON.stringify(cutsResult.before_after_flow)}
 
 COLD OPEN:
-${JSON.stringify(cutsResult.cold_open_recommendation, null, 2)}
+${JSON.stringify(cutsResult.cold_open_recommendation)}
 
 REEL-WORTHY MOMENTS:
-${JSON.stringify(cutsResult.reel_worthy_moments, null, 2)}
+${JSON.stringify(cutsResult.reel_worthy_moments)}
 
-EDITORIAL QUOTE STAMPS (use these for title/thumbnail inspiration):
-${JSON.stringify(editorialsResult.quote_stamps_gallery, null, 2)}
+HIGH RETENTION SPIKES:
+${JSON.stringify(cutsResult.high_retention_spikes)}
 
-EPISODE OVERVIEW:
-${JSON.stringify(cutsResult.episode_overview, null, 2)}
+EDITORIAL QUOTE STAMPS (use for title/thumbnail inspiration):
+${JSON.stringify(editorialsResult.quote_stamps_gallery)}
 
 TRANSCRIPT:
-${transcript}`;
+${truncated}`;
 }
 
 module.exports = {

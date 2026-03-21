@@ -7,7 +7,8 @@
       "Bash(start \"\" \"G:\\\\My Drive\\\\Claude Records\\\\podcast-landing\\\\index.html\")",
       "WebFetch(domain:www.yosomedia.in)",
       "Bash(where vercel:*)",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(del /f \"G:\\\\My Drive\\\\Claude Records\\\\Podcast bot\\\\.git\\\\index.lock\")"
     ]
   }
 }

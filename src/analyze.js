@@ -36,25 +36,35 @@ function parseJSON(text) {
 
 /**
  * Call Claude with extended thinking + streaming to avoid timeout.
+ * Uses proper system parameter for prompt caching.
+ * Accepts per-pass thinking budget and max_tokens.
  */
-async function callClaude(systemPrompt, userPrompt) {
-  const stream = await client.messages.stream({
-    model: 'claude-opus-4-6',
-    max_tokens: 32000,
-    thinking: {
-      type: 'enabled',
-      budget_tokens: 10000,
-    },
-    messages: [{
-      role: 'user',
-      content: `${systemPrompt}\n\n---\n\n${userPrompt}`,
-    }],
-  });
+async function callClaude(systemPrompt, userPrompt, { thinkingBudget = 10000, maxTokens = 16000 } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 min max
 
-  const message = await stream.finalMessage();
-  const textBlock = message.content.find((b) => b.type === 'text');
-  if (!textBlock) throw new Error('No text response from Claude');
-  return parseJSON(textBlock.text);
+  try {
+    const stream = await client.messages.stream({
+      model: 'claude-opus-4-6',
+      max_tokens: maxTokens,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+      thinking: {
+        type: 'enabled',
+        budget_tokens: thinkingBudget,
+      },
+      messages: [{
+        role: 'user',
+        content: userPrompt,
+      }],
+    }, { signal: controller.signal });
+
+    const message = await stream.finalMessage();
+    const textBlock = message.content.find((b) => b.type === 'text');
+    if (!textBlock) throw new Error('No text response from Claude');
+    return parseJSON(textBlock.text);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
@@ -105,27 +115,28 @@ Return the IMPROVED version of the full analysis as JSON. Same structure as belo
   const userMsg = `Review this analysis and tell me what to improve.
 
 CUTS ANALYSIS:
-${JSON.stringify(cuts, null, 2)}
+${JSON.stringify(cuts)}
 
 EDITORIALS ANALYSIS:
-${JSON.stringify(editorials, null, 2)}
+${JSON.stringify(editorials)}
 
 CHAPTERS/YT ANALYSIS:
-${JSON.stringify(chapters, null, 2)}
+${JSON.stringify(chapters)}
 
 ORIGINAL TRANSCRIPT (first 5000 chars for reference):
 ${transcript.slice(0, 5000)}`;
 
   const stream = await client.messages.stream({
     model: 'claude-opus-4-6',
-    max_tokens: 16000,
+    max_tokens: 8000,
+    system: [{ type: 'text', text: reviewPrompt, cache_control: { type: 'ephemeral' } }],
     thinking: {
       type: 'enabled',
-      budget_tokens: 8000,
+      budget_tokens: 5000,
     },
     messages: [{
       role: 'user',
-      content: `${reviewPrompt}\n\n---\n\n${userMsg}`,
+      content: userMsg,
     }],
   });
   const message = await stream.finalMessage();
@@ -150,30 +161,33 @@ async function analyzeTranscript(transcript, hasTimestamps, onProgress, episodeC
     fullTranscript = `[EPISODE CONTEXT FROM CREATOR]\n${episodeContext}\n\n[TRANSCRIPT]\n${transcript}`;
   }
 
-  // Pass 1: Cuts
+  // Pass 1: Cuts — deepest analysis, needs full thinking budget
   onProgress?.('Pass 1/4: Deep analysis of cuts & episode structure...');
   console.log('Pass 1: Cuts (with extended thinking)...');
   const cuts = await callClaude(
     buildCutsSystemPrompt(),
-    buildCutsUserPrompt(fullTranscript, hasTimestamps)
+    buildCutsUserPrompt(fullTranscript, hasTimestamps),
+    { thinkingBudget: 10000, maxTokens: 16000 }
   );
   console.log('Pass 1 complete.');
 
-  // Pass 2: Editorials
+  // Pass 2: Editorials — references cuts, less complex
   onProgress?.('Pass 2/4: Generating editorial overlays...');
   console.log('Pass 2: Editorials (with extended thinking)...');
   const editorials = await callClaude(
     buildEditorialsSystemPrompt(),
-    buildEditorialsUserPrompt(fullTranscript, cuts)
+    buildEditorialsUserPrompt(fullTranscript, cuts),
+    { thinkingBudget: 6000, maxTokens: 16000 }
   );
   console.log('Pass 2 complete.');
 
-  // Pass 3: Chapters & YT
+  // Pass 3: Chapters & YT — uses summaries from pass 1+2, less complex
   onProgress?.('Pass 3/4: Creating titles, thumbnails & YT copy...');
   console.log('Pass 3: Chapters & YT (with extended thinking)...');
   const chapters = await callClaude(
     buildChaptersSystemPrompt(),
-    buildChaptersUserPrompt(fullTranscript, cuts, editorials)
+    buildChaptersUserPrompt(fullTranscript, cuts, editorials),
+    { thinkingBudget: 6000, maxTokens: 16000 }
   );
   console.log('Pass 3 complete.');
 
