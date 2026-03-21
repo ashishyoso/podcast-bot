@@ -35,25 +35,23 @@ function parseJSON(text) {
 }
 
 /**
- * Call Claude with extended thinking enabled.
+ * Call Claude with extended thinking + streaming to avoid timeout.
  */
 async function callClaude(systemPrompt, userPrompt) {
-  const message = await client.messages.create({
+  const stream = await client.messages.stream({
     model: 'claude-opus-4-6',
     max_tokens: 32000,
     thinking: {
       type: 'enabled',
       budget_tokens: 10000,
     },
-    // Merge system prompt into user message since extended thinking
-    // works better with instructions in the user turn
     messages: [{
       role: 'user',
       content: `${systemPrompt}\n\n---\n\n${userPrompt}`,
     }],
   });
 
-  // With extended thinking, response has thinking blocks + text blocks
+  const message = await stream.finalMessage();
   const textBlock = message.content.find((b) => b.type === 'text');
   if (!textBlock) throw new Error('No text response from Claude');
   return parseJSON(textBlock.text);
@@ -118,7 +116,7 @@ ${JSON.stringify(chapters, null, 2)}
 ORIGINAL TRANSCRIPT (first 5000 chars for reference):
 ${transcript.slice(0, 5000)}`;
 
-  const message = await client.messages.create({
+  const stream = await client.messages.stream({
     model: 'claude-opus-4-6',
     max_tokens: 16000,
     thinking: {
@@ -130,6 +128,7 @@ ${transcript.slice(0, 5000)}`;
       content: `${reviewPrompt}\n\n---\n\n${userMsg}`,
     }],
   });
+  const message = await stream.finalMessage();
 
   const textBlock = message.content.find((b) => b.type === 'text');
   if (!textBlock) return null;
