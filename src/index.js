@@ -126,6 +126,8 @@ api.get('/', (req, res) => res.json({ status: 'ok', service: 'podcast-analyzer' 
 
 // SSE endpoint for real-time progress + final PPTX download
 api.post('/api/analyze', upload.single('transcript'), async (req, res) => {
+  let keepAliveTimer = null;
+
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -141,10 +143,16 @@ api.post('/api/analyze', upload.single('transcript'), async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx/proxy buffering
     res.flushHeaders();
 
+    // Keep-alive ping every 25s to prevent Railway/proxy timeout
+    keepAliveTimer = setInterval(() => {
+      try { res.write(': keepalive\n\n'); } catch (_) {}
+    }, 25000);
+
     const sendProgress = (step, text) => {
-      res.write(`data: ${JSON.stringify({ type: 'progress', step, text })}\n\n`);
+      try { res.write(`data: ${JSON.stringify({ type: 'progress', step, text })}\n\n`); } catch (_) {}
     };
 
     const content = req.file.buffer.toString('utf-8');
@@ -175,16 +183,18 @@ api.post('/api/analyze', upload.single('transcript'), async (req, res) => {
     // Send the PPTX as base64 in the final SSE event
     const base64 = pptxBuffer.toString('base64');
     res.write(`data: ${JSON.stringify({ type: 'complete', filename: `${episodeName} - Post-Production Deck.pptx`, pptx: base64 })}\n\n`);
+    clearInterval(keepAliveTimer);
     res.end();
 
     console.log(`[WEB] Complete: ${filename}`);
   } catch (error) {
     console.error('[WEB] Error:', error);
+    if (keepAliveTimer) clearInterval(keepAliveTimer);
     try {
       res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
       res.end();
     } catch (_) {
-      res.status(500).json({ error: error.message });
+      try { res.status(500).json({ error: error.message }); } catch (__) {}
     }
   }
 });
