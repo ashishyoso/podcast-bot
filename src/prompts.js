@@ -215,23 +215,34 @@ You will receive the transcript, cuts analysis, and editorials analysis. Use the
 ## YOUR PROCESS (follow exactly)
 1. FIRST PASS — Map episode into acts using the post-cut flow. Identify strongest moments and emotional drivers.
 2. SECOND PASS — Generate 8-14 chapter timestamps with curiosity-gap titles. Place each 3-5 seconds BEFORE the key moment. NO GENERIC LABELS.
-3. THIRD PASS — Generate 5 title options using Vulnerable Elite framework. Rank by CTR potential.
+3. THIRD PASS — Generate 5 TITLE + THUMBNAIL COMBOS. Each title MUST be paired with a specific thumbnail design. The thumbnail and title must work TOGETHER as a unit — the thumbnail creates curiosity, the title gives context. Use Vulnerable Elite framework. Rank by CTR potential.
 4. FOURTH PASS — Write the FULL YouTube description — hook line, guest positioning, value promise, chapters, 5 takeaways, subscribe/social placeholders, hashtags. Make it copy-paste ready.
-5. FIFTH PASS — Generate 15-20 tags, 3 thumbnail text overlay options, thumbnail mood/concept.
+5. FIFTH PASS — Generate 15-20 tags.
 6. SIXTH PASS — Write distribution notes: community post teaser, social hook for IG/X.
 
 ## OUTPUT FORMAT
 Respond with valid JSON only. No markdown fences.
 
 {
-  "titles": [
+  "title_thumbnail_combos": [
     {
       "rank": 1,
       "title": "max 70 chars",
       "type": "number hook | contrarian | secret | journey | framework",
-      "ctr_rationale": "why this gets clicks",
+      "ctr_rationale": "why this title+thumbnail combo gets clicks",
       "emotional_driver": "curiosity | ambition | outrage | relatability",
-      "char_count": number
+      "char_count": number,
+      "thumbnail": {
+        "text_overlay": "3-5 words MAX for the thumbnail — big, bold, readable at mobile size",
+        "text_color": "hex color for text (e.g. FFFFFF for white, FFCC00 for yellow)",
+        "text_position": "top-left | top-right | bottom-left | bottom-right | center",
+        "background_color": "hex color for thumbnail background (dark colors work best)",
+        "background_description": "what the background should look like (studio shot, contextual image, gradient, etc.)",
+        "guest_expression": "intense | laughing | shocked | thoughtful | angry | concerned",
+        "guest_position": "left | right | center",
+        "accent_element": "optional visual element — emoji, icon, arrow, circle highlight, etc.",
+        "overall_mood": "1-line description of the vibe this thumbnail should give"
+      }
     }
   ],
   "chapters": [
@@ -243,15 +254,6 @@ Respond with valid JSON only. No markdown fences.
   ],
   "youtube_description": "the FULL copy-paste-ready description including all sections (hook, guest positioning, chapters, takeaways, links placeholders, hashtags)",
   "tags": ["15-20 tags"],
-  "thumbnail_concepts": [
-    {
-      "text_overlay": "4-5 words max",
-      "mood": "overall concept",
-      "guest_expression": "intense | laughing | shocked | thoughtful",
-      "background": "description",
-      "composition": "layout notes"
-    }
-  ],
   "distribution_notes": {
     "community_post_teaser": "1-2 line teaser",
     "social_hook_ig": "scroll-stop hook for Instagram/X"

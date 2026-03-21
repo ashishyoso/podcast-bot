@@ -298,27 +298,111 @@ function slideBroll(pres, broll, footer) {
   addFooter(slide, footer, 'B-Roll');
 }
 
-function slideTitles(pres, titles, footer) {
-  if (!titles?.length) return;
-  const slide = pres.addSlide();
-  slide.background = { color: C.offWhite };
-  slide.addText('Title Options \u2014 Ranked by CTR', { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 28, fontFace: FONT.head, color: C.text, bold: true });
+function slideTitleThumbnailCombos(pres, combos, footer) {
+  if (!combos?.length) return;
 
-  titles.forEach((t, i) => {
-    const y = 1.1 + i * 0.85;
+  // One slide per combo — visual thumbnail mockup + title
+  combos.forEach((combo, i) => {
+    const slide = pres.addSlide();
+    slide.background = { color: C.offWhite };
     const isTop = i === 0;
-    slide.addShape(pres.shapes.RECTANGLE, { x: 0.5, y, w: 9, h: 0.75, fill: { color: isTop ? C.navy : C.white }, shadow: isTop ? shadow() : undefined });
-    slide.addShape(pres.shapes.RECTANGLE, { x: 0.5, y, w: 0.08, h: 0.75, fill: { color: isTop ? C.accent : C.muted } });
-    slide.addText(String(t.rank || i + 1), { x: 0.7, y, w: 0.5, h: 0.75, fontSize: 20, fontFace: FONT.head, color: isTop ? C.white : C.navy, bold: true, valign: 'middle' });
-    slide.addText(t.title, { x: 1.3, y, w: 5.5, h: 0.45, fontSize: 14, fontFace: FONT.body, color: isTop ? C.white : C.text, bold: true, valign: 'bottom' });
-    slide.addText(`${(t.type || '').toUpperCase()}  \u2022  ${t.emotional_driver || ''}  \u2022  ${t.char_count || t.title.length} chars`, {
-      x: 1.3, y: y + 0.42, w: 5.5, h: 0.3, fontSize: 9, fontFace: FONT.body, color: isTop ? C.ice : C.muted,
+    const th = combo.thumbnail || {};
+
+    // Header
+    slide.addText(`Option ${combo.rank || i + 1}${isTop ? '  \u2014  TOP PICK' : ''}`, {
+      x: 0.5, y: 0.2, w: 9, h: 0.4, fontSize: 12, fontFace: FONT.body, color: isTop ? C.accent : C.muted, bold: true, charSpacing: 2,
     });
-    if (isTop) {
-      slide.addText('TOP PICK', { x: 7.5, y: y + 0.15, w: 1.5, h: 0.4, fontSize: 10, fontFace: FONT.body, color: C.white, bold: true, align: 'center', valign: 'middle' });
+
+    // ─── THUMBNAIL MOCKUP (left side, 16:9 ratio) ───
+    const thumbX = 0.5, thumbY = 0.7, thumbW = 5.5, thumbH = 3.1;
+    const bgColor = th.background_color || '1A1A2E';
+
+    // Thumbnail frame with shadow
+    slide.addShape(pres.shapes.RECTANGLE, {
+      x: thumbX, y: thumbY, w: thumbW, h: thumbH,
+      fill: { color: bgColor }, shadow: shadow(),
+    });
+
+    // Guest position indicator (circle placeholder)
+    const guestSide = th.guest_position || 'right';
+    const guestX = guestSide === 'left' ? thumbX + 0.4 : guestSide === 'center' ? thumbX + thumbW / 2 - 0.7 : thumbX + thumbW - 1.8;
+    slide.addShape(pres.shapes.OVAL, {
+      x: guestX, y: thumbY + 0.5, w: 1.4, h: 1.8,
+      fill: { color: 'FFFFFF', transparency: 15 },
+      line: { color: 'FFFFFF', width: 1.5 },
+    });
+    slide.addText('GUEST\nFACE', {
+      x: guestX, y: thumbY + 0.9, w: 1.4, h: 1.0,
+      fontSize: 9, fontFace: FONT.body, color: 'FFFFFF', align: 'center', valign: 'middle', bold: true,
+    });
+
+    // Expression label under face
+    slide.addText((th.guest_expression || '').toUpperCase(), {
+      x: guestX - 0.2, y: thumbY + 2.4, w: 1.8, h: 0.3,
+      fontSize: 7, fontFace: FONT.body, color: C.amber, align: 'center', bold: true, charSpacing: 1,
+    });
+
+    // Text overlay on thumbnail
+    const textOverlay = th.text_overlay || '';
+    const textColor = th.text_color || 'FFFFFF';
+    const textPos = th.text_position || 'top-left';
+    let txtX = thumbX + 0.3, txtY = thumbY + 0.3;
+    let txtAlign = 'left';
+    if (textPos.includes('right')) { txtX = thumbX + thumbW - 3.3; txtAlign = 'right'; }
+    if (textPos.includes('bottom')) { txtY = thumbY + thumbH - 1.0; }
+    if (textPos === 'center') { txtX = thumbX + 0.5; txtY = thumbY + thumbH / 2 - 0.4; txtAlign = 'center'; }
+
+    slide.addText(textOverlay.toUpperCase(), {
+      x: txtX, y: txtY, w: 3, h: 0.7,
+      fontSize: 26, fontFace: 'Arial Black', color: textColor, bold: true, align: txtAlign, valign: 'middle',
+    });
+
+    // Accent element note
+    if (th.accent_element) {
+      slide.addText(th.accent_element, {
+        x: thumbX + 0.3, y: thumbY + thumbH - 0.4, w: 3, h: 0.3,
+        fontSize: 8, fontFace: FONT.body, color: C.amber, italic: true,
+      });
     }
+
+    // "THUMBNAIL MOCKUP" label
+    slide.addText('THUMBNAIL MOCKUP', {
+      x: thumbX, y: thumbY + thumbH + 0.05, w: thumbW, h: 0.25,
+      fontSize: 7, fontFace: FONT.body, color: C.muted, align: 'center', charSpacing: 2,
+    });
+
+    // ─── TITLE + DETAILS (right side) ───
+    const infoX = 6.3;
+
+    slide.addText('TITLE', { x: infoX, y: 0.7, w: 3.5, h: 0.3, fontSize: 9, fontFace: FONT.body, color: C.muted, charSpacing: 2, bold: true });
+    slide.addText(combo.title, { x: infoX, y: 1.0, w: 3.5, h: 0.9, fontSize: 16, fontFace: FONT.head, color: C.text, bold: true, valign: 'top' });
+
+    slide.addText('TYPE', { x: infoX, y: 2.0, w: 1.5, h: 0.25, fontSize: 8, fontFace: FONT.body, color: C.muted, charSpacing: 1 });
+    slide.addText((combo.type || '').toUpperCase(), { x: infoX, y: 2.2, w: 3.5, h: 0.3, fontSize: 11, fontFace: FONT.body, color: C.navy, bold: true });
+
+    slide.addText('EMOTIONAL DRIVER', { x: infoX, y: 2.6, w: 3, h: 0.25, fontSize: 8, fontFace: FONT.body, color: C.muted, charSpacing: 1 });
+    slide.addText((combo.emotional_driver || '').toUpperCase(), { x: infoX, y: 2.8, w: 3.5, h: 0.3, fontSize: 11, fontFace: FONT.body, color: C.accent, bold: true });
+
+    slide.addText('CTR RATIONALE', { x: infoX, y: 3.2, w: 3, h: 0.25, fontSize: 8, fontFace: FONT.body, color: C.muted, charSpacing: 1 });
+    slide.addText(combo.ctr_rationale || '', { x: infoX, y: 3.45, w: 3.5, h: 0.8, fontSize: 10, fontFace: FONT.body, color: C.text, valign: 'top' });
+
+    // Thumbnail details below mockup
+    slide.addText('THUMBNAIL NOTES', { x: 0.5, y: 4.1, w: 5.5, h: 0.25, fontSize: 8, fontFace: FONT.body, color: C.muted, charSpacing: 1, bold: true });
+
+    const notes = [
+      th.background_description ? `BG: ${th.background_description}` : '',
+      th.overall_mood ? `Mood: ${th.overall_mood}` : '',
+    ].filter(Boolean).join('  |  ');
+
+    slide.addText(notes, { x: 0.5, y: 4.35, w: 9, h: 0.4, fontSize: 9, fontFace: FONT.body, color: C.text });
+
+    // Chars count
+    slide.addText(`${combo.char_count || combo.title.length} chars`, {
+      x: infoX, y: 4.35, w: 3.5, h: 0.3, fontSize: 9, fontFace: FONT.body, color: C.muted,
+    });
+
+    addFooter(slide, footer, `Title+Thumbnail ${i + 1}/${combos.length}`);
   });
-  addFooter(slide, footer, 'Title Options');
 }
 
 function slideChapters(pres, chapters, footer) {
@@ -350,45 +434,33 @@ function slideDescription(pres, description, footer) {
   addFooter(slide, footer, 'YT Description');
 }
 
-function slideThumbnailTags(pres, thumbnails, tags, distribution, footer) {
+function slideTagsDistribution(pres, tags, distribution, footer) {
   const slide = pres.addSlide();
   slide.background = { color: C.white };
-  slide.addText('Tags, Thumbnail & Distribution', { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 24, fontFace: FONT.head, color: C.text, bold: true });
+  slide.addText('Tags & Distribution', { x: 0.5, y: 0.3, w: 9, h: 0.5, fontSize: 24, fontFace: FONT.head, color: C.text, bold: true });
 
-  // Tags
   if (tags?.length) {
-    slide.addText('TAGS', { x: 0.5, y: 0.9, w: 2, h: 0.3, fontSize: 10, fontFace: FONT.body, color: C.muted, bold: true, charSpacing: 2 });
-    slide.addText(tags.join(', '), { x: 0.5, y: 1.2, w: 9, h: 0.6, fontSize: 9, fontFace: FONT.body, color: C.text });
+    slide.addText('TAGS', { x: 0.5, y: 1.0, w: 2, h: 0.3, fontSize: 10, fontFace: FONT.body, color: C.muted, bold: true, charSpacing: 2 });
+    slide.addText(tags.join(', '), { x: 0.5, y: 1.4, w: 9, h: 0.8, fontSize: 10, fontFace: FONT.body, color: C.text });
   }
 
-  // Thumbnails
-  if (thumbnails?.length) {
-    slide.addText('THUMBNAIL OPTIONS', { x: 0.5, y: 1.9, w: 4, h: 0.3, fontSize: 10, fontFace: FONT.body, color: C.muted, bold: true, charSpacing: 2 });
-    thumbnails.forEach((th, i) => {
-      const y = 2.3 + i * 0.7;
-      slide.addShape(pres.shapes.RECTANGLE, { x: 0.5, y, w: 4.3, h: 0.6, fill: { color: C.dark } });
-      slide.addText(th.text_overlay || '', { x: 0.7, y, w: 3, h: 0.6, fontSize: 16, fontFace: FONT.head, color: C.white, bold: true, valign: 'middle' });
-      slide.addText(th.mood || '', { x: 5, y, w: 4.5, h: 0.6, fontSize: 9, fontFace: FONT.body, color: C.muted, valign: 'middle' });
-    });
-  }
-
-  // Distribution
   if (distribution) {
-    const distY = 4.2;
-    slide.addText('DISTRIBUTION', { x: 0.5, y: distY, w: 4, h: 0.3, fontSize: 10, fontFace: FONT.body, color: C.muted, bold: true, charSpacing: 2 });
+    slide.addText('DISTRIBUTION', { x: 0.5, y: 2.5, w: 4, h: 0.3, fontSize: 10, fontFace: FONT.body, color: C.muted, bold: true, charSpacing: 2 });
     if (distribution.community_post_teaser) {
+      slide.addShape(pres.shapes.RECTANGLE, { x: 0.5, y: 2.9, w: 9, h: 0.7, fill: { color: C.offWhite } });
       slide.addText([{ text: 'Community post: ', options: { bold: true } }, { text: distribution.community_post_teaser }], {
-        x: 0.5, y: distY + 0.3, w: 9, h: 0.3, fontSize: 9, fontFace: FONT.body, color: C.text,
+        x: 0.7, y: 2.9, w: 8.6, h: 0.7, fontSize: 11, fontFace: FONT.body, color: C.text, valign: 'middle',
       });
     }
     if (distribution.social_hook_ig) {
-      slide.addText([{ text: 'Social hook: ', options: { bold: true } }, { text: distribution.social_hook_ig }], {
-        x: 0.5, y: distY + 0.6, w: 9, h: 0.3, fontSize: 9, fontFace: FONT.body, color: C.text,
+      slide.addShape(pres.shapes.RECTANGLE, { x: 0.5, y: 3.8, w: 9, h: 0.7, fill: { color: C.offWhite } });
+      slide.addText([{ text: 'Social hook (IG/X): ', options: { bold: true } }, { text: distribution.social_hook_ig }], {
+        x: 0.7, y: 3.8, w: 8.6, h: 0.7, fontSize: 11, fontFace: FONT.body, color: C.text, valign: 'middle',
       });
     }
   }
 
-  addFooter(slide, footer, 'Tags & Thumbnail');
+  addFooter(slide, footer, 'Tags & Distribution');
 }
 
 function slideViralShorts(pres, shorts, footer) {
@@ -466,12 +538,12 @@ async function generatePptx(analysis, episodeName) {
   slideQuoteGallery(pres, editorials.quote_stamps_gallery, footer);
 
   // --- SECTION: CHAPTERS & YT ---
-  sectionSlide(pres, 'Part 3: Chapters & YT Copy', 'Titles, chapters, description, tags & thumbnails', footer);
+  sectionSlide(pres, 'Part 3: Chapters & YT Copy', 'Titles + thumbnails, chapters, description, tags', footer);
 
-  slideTitles(pres, chapters.titles, footer);
+  slideTitleThumbnailCombos(pres, chapters.title_thumbnail_combos, footer);
   slideChapters(pres, chapters.chapters, footer);
   slideDescription(pres, chapters.youtube_description, footer);
-  slideThumbnailTags(pres, chapters.thumbnail_concepts, chapters.tags, chapters.distribution_notes, footer);
+  slideTagsDistribution(pres, chapters.tags, chapters.distribution_notes, footer);
 
   // --- VIRAL SHORTS ---
   if (chapters.viral_shorts?.length) {
