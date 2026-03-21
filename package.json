@@ -1,0 +1,18 @@
+{
+  "name": "podcast-transcript-bot",
+  "version": "1.0.0",
+  "description": "Slack bot that analyzes podcast transcripts using Claude AI",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@slack/bolt": "^4.1.0",
+    "dotenv": "^16.4.7"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
