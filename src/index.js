@@ -5,6 +5,7 @@ const path = require('path');
 const { parseTranscript } = require('./srt-parser');
 const { analyzeTranscript } = require('./analyze');
 const { formatAnalysis } = require('./formatter');
+const { generateDocx } = require('./doc-generator');
 
 // Load skills document
 let skillsDoc = '';
@@ -70,15 +71,27 @@ app.event('file_shared', async ({ event, client }) => {
         channel,
         thread_ts: ack.ts,
         blocks,
-        text: 'Podcast analysis results', // Fallback for notifications
+        text: 'Podcast analysis results',
       });
     }
+
+    // Generate and upload Word doc
+    const episodeName = file.name.replace(/\.(txt|srt)$/i, '');
+    const docBuffer = await generateDocx(analysis, episodeName);
+    await client.files.uploadV2({
+      channel_id: channel,
+      thread_ts: ack.ts,
+      file: docBuffer,
+      filename: `${episodeName} - Analysis.docx`,
+      title: `${episodeName} - Full Analysis`,
+      initial_comment: 'Here is the full analysis as a Word document.',
+    });
 
     // Update the ack message
     await client.chat.update({
       channel,
       ts: ack.ts,
-      text: `✅ Analysis complete for *${file.name}* — see thread for results`,
+      text: `✅ Analysis complete for *${file.name}* — see thread for results + doc`,
     });
   } catch (error) {
     console.error('Error processing file:', error);

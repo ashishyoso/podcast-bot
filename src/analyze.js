@@ -8,7 +8,7 @@ async function analyzeTranscript(transcript, hasTimestamps, skillsDoc) {
   const userPrompt = buildUserPrompt(transcript, hasTimestamps);
 
   const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-opus-4-6',
     max_tokens: 16000,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
