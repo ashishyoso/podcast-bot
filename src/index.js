@@ -1,5 +1,8 @@
 require('dotenv').config();
 const { App } = require('@slack/bolt');
+const express = require('express');
+const multer = require('multer');
+const cors = require('cors');
 const { parseTranscript } = require('./srt-parser');
 const { analyzeTranscript } = require('./analyze');
 const { generatePptx } = require('./pptx-generator');
@@ -111,7 +114,90 @@ app.event('file_shared', async ({ event, client }) => {
   }
 });
 
+// ═══ HTTP API for web uploads ═══
+const api = express();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+api.use(cors());
+api.use(express.json());
+
+// Health check
+api.get('/', (req, res) => res.json({ status: 'ok', service: 'podcast-analyzer' }));
+
+// SSE endpoint for real-time progress + final PPTX download
+api.post('/api/analyze', upload.single('transcript'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const filename = req.file.originalname;
+    const ext = filename.split('.').pop().toLowerCase();
+    if (!['txt', 'srt'].includes(ext)) {
+      return res.status(400).json({ error: 'Only .txt and .srt files are supported' });
+    }
+
+    console.log(`[WEB] Processing: ${filename} (${req.file.size} bytes)`);
+
+    // Set up SSE for progress updates
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const sendProgress = (step, text) => {
+      res.write(`data: ${JSON.stringify({ type: 'progress', step, text })}\n\n`);
+    };
+
+    const content = req.file.buffer.toString('utf-8');
+    const episodeContext = req.body?.context || '';
+    const transcript = parseTranscript(content, filename);
+
+    // 4-pass analysis with progress
+    const onProgress = (text) => {
+      if (text.includes('1/4')) sendProgress(1, text);
+      else if (text.includes('2/4')) sendProgress(2, text);
+      else if (text.includes('3/4')) sendProgress(3, text);
+      else if (text.includes('4/4')) sendProgress(4, text);
+      else sendProgress(0, text);
+    };
+
+    const analysis = await analyzeTranscript(
+      transcript.plainText,
+      transcript.hasTimestamps,
+      onProgress,
+      episodeContext
+    );
+
+    // Generate PPTX
+    sendProgress(5, 'Building post-production deck...');
+    const episodeName = filename.replace(/\.(txt|srt)$/i, '');
+    const pptxBuffer = await generatePptx(analysis, episodeName);
+
+    // Send the PPTX as base64 in the final SSE event
+    const base64 = pptxBuffer.toString('base64');
+    res.write(`data: ${JSON.stringify({ type: 'complete', filename: `${episodeName} - Post-Production Deck.pptx`, pptx: base64 })}\n\n`);
+    res.end();
+
+    console.log(`[WEB] Complete: ${filename}`);
+  } catch (error) {
+    console.error('[WEB] Error:', error);
+    try {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+      res.end();
+    } catch (_) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+
 (async () => {
+  // Start Slack bot
   await app.start();
-  console.log('\u26A1 Podcast bot running (4-pass Opus + extended thinking)');
+  console.log('\u26A1 Slack bot running (4-pass Opus + extended thinking)');
+
+  // Start HTTP API
+  api.listen(PORT, () => {
+    console.log(`\u26A1 HTTP API running on port ${PORT}`);
+  });
 })();

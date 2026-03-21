@@ -3,7 +3,11 @@
     "allow": [
       "Bash(git --version)",
       "Bash(gh --version)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(start \"\" \"G:\\\\My Drive\\\\Claude Records\\\\podcast-landing\\\\index.html\")",
+      "WebFetch(domain:www.yosomedia.in)",
+      "Bash(where vercel:*)",
+      "Bash(npx vercel:*)"
     ]
   }
 }
