@@ -493,6 +493,67 @@ function slideViralShorts(pres, shorts, footer) {
   });
 }
 
+function slideReview(pres, review, footer) {
+  const slide = pres.addSlide();
+  slide.background = { color: C.dark };
+  slide.addText('Senior Editor Review', { x: 0.5, y: 0.2, w: 7, h: 0.5, fontSize: 24, fontFace: FONT.head, color: C.white, bold: true });
+
+  // Quality score badge
+  const score = review.overall_quality_score || 'N/A';
+  const scoreColor = score === 'A' ? C.green : score === 'B' ? C.accent : score === 'C' ? C.amber : C.red;
+  slide.addShape(pres.shapes.RECTANGLE, { x: 8.5, y: 0.2, w: 1, h: 0.5, fill: { color: scoreColor } });
+  slide.addText(score, { x: 8.5, y: 0.2, w: 1, h: 0.5, fontSize: 22, fontFace: FONT.head, color: C.white, bold: true, align: 'center', valign: 'middle' });
+
+  // Summary
+  if (review.summary) {
+    slide.addText(review.summary, { x: 0.5, y: 0.85, w: 9, h: 0.5, fontSize: 12, fontFace: FONT.body, color: C.ice, italic: true });
+  }
+
+  // Top issues
+  if (review.top_issues?.length) {
+    slide.addText('TOP ISSUES FOUND', { x: 0.5, y: 1.5, w: 9, h: 0.3, fontSize: 10, fontFace: FONT.body, color: C.amber, bold: true, charSpacing: 2 });
+    review.top_issues.forEach((issue, i) => {
+      slide.addShape(pres.shapes.RECTANGLE, { x: 0.5, y: 1.9 + i * 0.55, w: 9, h: 0.45, fill: { color: '1A2332' } });
+      slide.addText(`${i + 1}. ${issue}`, {
+        x: 0.7, y: 1.9 + i * 0.55, w: 8.6, h: 0.45, fontSize: 11, fontFace: FONT.body, color: C.white, valign: 'middle',
+      });
+    });
+  }
+
+  // Improvements summary
+  let improvY = 3.7;
+  const improvements = [];
+
+  if (review.cuts_improvements?.added_cuts?.length)
+    improvements.push(`+${review.cuts_improvements.added_cuts.length} cuts added`);
+  if (review.cuts_improvements?.removed_cuts?.length)
+    improvements.push(`-${review.cuts_improvements.removed_cuts.length} cuts removed`);
+  if (review.editorials_improvements?.added_editorials?.length)
+    improvements.push(`+${review.editorials_improvements.added_editorials.length} editorials added`);
+  if (review.chapters_improvements?.improved_titles?.length)
+    improvements.push(`${review.chapters_improvements.improved_titles.length} titles improved`);
+  if (review.chapters_improvements?.improved_chapters?.length)
+    improvements.push(`${review.chapters_improvements.improved_chapters.length} chapters improved`);
+
+  if (improvements.length) {
+    slide.addText('IMPROVEMENTS APPLIED', { x: 0.5, y: improvY, w: 9, h: 0.3, fontSize: 10, fontFace: FONT.body, color: C.green, bold: true, charSpacing: 2 });
+    slide.addText(improvements.join('  \u2022  '), {
+      x: 0.5, y: improvY + 0.35, w: 9, h: 0.4, fontSize: 11, fontFace: FONT.body, color: C.white,
+    });
+  }
+
+  // Description / shorts notes
+  const notes = [
+    review.chapters_improvements?.description_notes,
+    review.chapters_improvements?.shorts_notes,
+  ].filter(Boolean).join(' | ');
+  if (notes) {
+    slide.addText(notes, { x: 0.5, y: 4.5, w: 9, h: 0.5, fontSize: 9, fontFace: FONT.body, color: C.muted });
+  }
+
+  addFooter(slide, footer, 'Senior Review');
+}
+
 // ─── MAIN EXPORT ───
 
 async function generatePptx(analysis, episodeName) {
@@ -549,6 +610,11 @@ async function generatePptx(analysis, episodeName) {
   if (chapters.viral_shorts?.length) {
     sectionSlide(pres, 'Viral Shorts', `${chapters.viral_shorts.length} reel-ready clips`, footer);
     slideViralShorts(pres, chapters.viral_shorts, footer);
+  }
+
+  // --- SENIOR REVIEW ---
+  if (analysis.review) {
+    slideReview(pres, analysis.review, footer);
   }
 
   const buffer = await pres.write({ outputType: 'nodebuffer' });

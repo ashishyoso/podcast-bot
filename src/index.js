@@ -23,17 +23,40 @@ app.event('file_shared', async ({ event, client }) => {
     console.log(`Processing: ${file.name} (${file.size} bytes)`);
     const channel = event.channel_id;
 
+    // Try to get episode context from the message that accompanied the file upload
+    let episodeContext = '';
+    try {
+      // Get the message that shared the file
+      const result = await client.conversations.history({
+        channel,
+        latest: event.event_ts,
+        inclusive: true,
+        limit: 1,
+      });
+      const msg = result.messages?.[0];
+      if (msg?.text && msg.text.trim().length > 5) {
+        episodeContext = msg.text;
+        console.log(`Episode context: ${episodeContext.slice(0, 100)}`);
+      }
+    } catch (e) {
+      // Context is optional — continue without it
+    }
+
     // Acknowledge
+    const contextNote = episodeContext
+      ? `\nContext received: _${episodeContext.slice(0, 100)}${episodeContext.length > 100 ? '...' : ''}_`
+      : '\n_Tip: add a message with your upload (guest name, topic, audience) for better results._';
+
     const ack = await client.chat.postMessage({
       channel,
-      text: `\uD83C\uDFA7 Analyzing *${file.name}*...\nRunning 3-pass analysis with Claude Opus. This takes 2-3 minutes.`,
+      text: `\uD83C\uDFA7 Analyzing *${file.name}*...\n4-pass deep analysis with Claude Opus. This takes 3-5 minutes.${contextNote}`,
     });
 
     // Progress updater
     const updateProgress = async (text) => {
       try {
         await client.chat.update({ channel, ts: ack.ts, text: `\uD83C\uDFA7 *${file.name}*\n${text}` });
-      } catch (e) { /* ignore update errors */ }
+      } catch (e) { /* ignore */ }
     };
 
     // Download file
@@ -43,15 +66,16 @@ app.event('file_shared', async ({ event, client }) => {
     const content = await response.text();
     const transcript = parseTranscript(content, file.name);
 
-    // 3-pass analysis with progress updates
+    // 4-pass analysis
     const analysis = await analyzeTranscript(
       transcript.plainText,
       transcript.hasTimestamps,
-      updateProgress
+      updateProgress,
+      episodeContext
     );
 
     // Generate PPTX
-    await updateProgress('Generating presentation deck...');
+    await updateProgress('Building post-production deck...');
     const episodeName = file.name.replace(/\.(txt|srt)$/i, '');
     const pptxBuffer = await generatePptx(analysis, episodeName);
 
@@ -64,10 +88,15 @@ app.event('file_shared', async ({ event, client }) => {
       title: `${episodeName} - Post-Production Deck`,
     });
 
+    // Final message with review summary
+    const reviewNote = analysis.review?.summary
+      ? `\nSenior review: _${analysis.review.summary}_\nQuality: *${analysis.review.overall_quality_score || 'N/A'}*`
+      : '';
+
     await client.chat.update({
       channel,
       ts: ack.ts,
-      text: `\u2705 *${file.name}* \u2014 Post-production deck ready! Check the thread.`,
+      text: `\u2705 *${file.name}* \u2014 Post-production deck ready! Check the thread.${reviewNote}`,
     });
   } catch (error) {
     console.error('Error:', error);
@@ -84,5 +113,5 @@ app.event('file_shared', async ({ event, client }) => {
 
 (async () => {
   await app.start();
-  console.log('\u26A1 Podcast bot is running (3-pass Opus pipeline)');
+  console.log('\u26A1 Podcast bot running (4-pass Opus + extended thinking)');
 })();
