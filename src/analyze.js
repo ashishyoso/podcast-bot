@@ -12,32 +12,45 @@ const client = new Anthropic();
 
 function parseJSON(text) {
   let cleaned = text.trim();
+
+  // Remove markdown code fences
   if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?\s*```\s*$/, '');
   }
+
+  // Try direct parse first
   try {
     return JSON.parse(cleaned);
-  } catch (err) {
-    console.error('JSON parse error:', err.message);
-    console.error('Raw (first 500):', text.slice(0, 500));
+  } catch (_) {
+    // Fallback: extract JSON object from text (Claude sometimes adds text before/after)
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (_) {}
+    }
+    console.error('JSON parse error. Raw (first 1000):', text.slice(0, 1000));
     throw new Error('Claude returned invalid JSON. Please try again.');
   }
 }
 
 /**
  * Call Claude with extended thinking enabled.
- * Extended thinking lets Claude reason deeply before responding.
  */
 async function callClaude(systemPrompt, userPrompt) {
   const message = await client.messages.create({
     model: 'claude-opus-4-6',
-    max_tokens: 16000,
+    max_tokens: 32000,
     thinking: {
       type: 'enabled',
       budget_tokens: 10000,
     },
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }],
+    // Merge system prompt into user message since extended thinking
+    // works better with instructions in the user turn
+    messages: [{
+      role: 'user',
+      content: `${systemPrompt}\n\n---\n\n${userPrompt}`,
+    }],
   });
 
   // With extended thinking, response has thinking blocks + text blocks
@@ -107,13 +120,15 @@ ${transcript.slice(0, 5000)}`;
 
   const message = await client.messages.create({
     model: 'claude-opus-4-6',
-    max_tokens: 8000,
+    max_tokens: 16000,
     thinking: {
       type: 'enabled',
       budget_tokens: 8000,
     },
-    system: reviewPrompt,
-    messages: [{ role: 'user', content: userMsg }],
+    messages: [{
+      role: 'user',
+      content: `${reviewPrompt}\n\n---\n\n${userMsg}`,
+    }],
   });
 
   const textBlock = message.content.find((b) => b.type === 'text');
