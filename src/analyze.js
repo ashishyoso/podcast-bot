@@ -29,7 +29,9 @@ function parseJSON(text) {
         return JSON.parse(jsonMatch[0]);
       } catch (_) {}
     }
-    console.error('JSON parse error. Raw (first 1000):', text.slice(0, 1000));
+    console.error('JSON parse error. Raw length:', text.length);
+    console.error('Raw (first 2000):', text.slice(0, 2000));
+    console.error('Raw (last 500):', text.slice(-500));
     throw new Error('Claude returned invalid JSON. Please try again.');
   }
 }
@@ -59,6 +61,10 @@ async function callClaude(systemPrompt, userPrompt, { thinkingBudget = 10000, ma
     }, { signal: controller.signal });
 
     const message = await stream.finalMessage();
+    console.log(`Claude response — stop_reason: ${message.stop_reason}, usage: in=${message.usage?.input_tokens} out=${message.usage?.output_tokens}`);
+    if (message.stop_reason === 'max_tokens') {
+      console.warn('WARNING: Response was truncated (hit max_tokens). Increasing maxTokens may help.');
+    }
     const textBlock = message.content.find((b) => b.type === 'text');
     if (!textBlock) throw new Error('No text response from Claude');
     return parseJSON(textBlock.text);
