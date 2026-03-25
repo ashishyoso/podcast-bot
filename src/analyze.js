@@ -173,27 +173,27 @@ async function analyzeTranscript(transcript, hasTimestamps, onProgress, episodeC
   const cuts = await callClaude(
     buildCutsSystemPrompt(),
     buildCutsUserPrompt(fullTranscript, hasTimestamps),
-    { thinkingBudget: 10000, maxTokens: 16000 }
+    { thinkingBudget: 10000, maxTokens: 32000 }
   );
   console.log('Pass 1 complete.');
 
-  // Pass 2: Editorials — references cuts, less complex
+  // Pass 2: Editorials — references cuts, needs room for large JSON output
   onProgress?.('Pass 2/4: Generating editorial overlays...');
   console.log('Pass 2: Editorials (with extended thinking)...');
   const editorials = await callClaude(
     buildEditorialsSystemPrompt(),
     buildEditorialsUserPrompt(fullTranscript, cuts),
-    { thinkingBudget: 6000, maxTokens: 16000 }
+    { thinkingBudget: 6000, maxTokens: 32000 }
   );
   console.log('Pass 2 complete.');
 
-  // Pass 3: Chapters & YT — uses summaries from pass 1+2, less complex
+  // Pass 3: Chapters & YT — uses summaries from pass 1+2
   onProgress?.('Pass 3/4: Creating titles, thumbnails & YT copy...');
   console.log('Pass 3: Chapters & YT (with extended thinking)...');
   const chapters = await callClaude(
     buildChaptersSystemPrompt(),
     buildChaptersUserPrompt(fullTranscript, cuts, editorials),
-    { thinkingBudget: 6000, maxTokens: 16000 }
+    { thinkingBudget: 6000, maxTokens: 32000 }
   );
   console.log('Pass 3 complete.');
 
